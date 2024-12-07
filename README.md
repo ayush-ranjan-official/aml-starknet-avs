@@ -1,188 +1,83 @@
-# Hello World AVS
+# AML Transaction Compliance AVS
 
-Welcome to the Hello World AVS. This project shows you the simplest functionality you can expect from an AVS. It will give you a concrete understanding of the basic components. For new users, please find [this video walkthrough](https://drive.google.com/file/d/1P6uA6kYWCbpeorTjADuoTlQ-q8uqwPZf/view?usp=sharing) of the hello world AVS repository.
+## Overview
 
-## Architecture
+This repository demonstrates an **Actively Validated Service (AVS)** integrated with the EigenLayer ecosystem to identify and flag suspicious transactions based on Anti-Money Laundering (AML) rules. By leveraging Ethereum restaking via EigenLayer, this AVS provides robust cryptoeconomic security, ensuring that the validation of off-chain compliance checks is both trust-minimized and economically incentivized.
 
-![hello-world-png](./assets/hello-world-diagramv2.png)
+**Key Features:**
+- **AML Rule-Based Validation:** Defines basic AML rules to flag high-risk transactions:
+  1. **High Volume Detection:** Transactions above a certain USD threshold are flagged.
+  2. **Sanctioned Address Check:** Transactions involving known blacklisted or sanctioned addresses are flagged.
+  3. **High Frequency Alert:** Unusually frequent transactions from the same address within a short timeframe are flagged.
 
-### AVS User Flow
+- **Robust Security via Restaking:** Harnesses the EigenLayer protocol to tap into Ethereum’s staked ETH security, ensuring that operators who validate tasks have economically at stake, discouraging malicious or incorrect validation.
 
-1) AVS consumer requests a "Hello World" message to be generated and signed.
-2) HelloWorld contract receives the request and emits a NewTaskCreated event for the request.
-3) All Operators who are registered to the AVS and has staked, delegated assets takes this request. Operator generates the requested message, hashes it, and signs the hash with their private key.
-4) Each Operator submits their signed hash back to the HelloWorld AVS contract.
-5) If the Operator is registered to the AVS and has the minimum needed stake, the submission is accepted.
+- **Multi-Operator Consensus:** Requires multiple operators (e.g., 3 operators) to process and agree on AML checks. Only when a majority (2 out of 3) agree that a transaction is suspicious does the AVS finalize the flag.
 
-That's it. This simple flow highlights some of the core mechanics of how AVSs work.
+- **On-Chain Transparency:** Every finalized decision (flagged or not) is recorded and auditable on-chain. This transparency allows DeFi protocols, regulators, and end-users to trust the compliance checks without relying on a single centralized entity.
 
-# Local Devnet Deployment
+## Why Build an AVS for AML Compliance?
 
-The following instructions explain how to manually deploy the AVS from scratch including EigenLayer and AVS specific contracts using Foundry (forge) to a local anvil chain, and start Typescript Operator application and tasks.
+**EigenLayer’s Shared Security Model:**  
+Traditionally, building secure decentralized services required bootstrapping independent validator networks—expensive and time-consuming. EigenLayer introduces “restaking,” allowing existing Ethereum stakers to secure new services. By building your AML compliance checks as an AVS:
+- **Instant Access to Security:** Leverage Ethereum’s robust staking base without reinventing the security wheel.
+- **Decentralized & Trust-Minimized:** Rely on decentralized operators, reducing the risk of single points of failure or manipulation.
+- **Rapid Innovation:** Focus on the unique logic of AML compliance, rather than the overhead of building and securing a new network.
 
-## Development Environment
-This section describes the tooling required for local development.
+**AML Compliance in DeFi:**
+DeFi projects face increasing regulatory scrutiny and must ensure their protocols are not exploited for money laundering or other illicit activities. An AVS provides:
+- **Real-Time Monitoring:** DeFi protocols can integrate this AVS to continuously monitor transactions, identify suspicious activities, and take appropriate measures (e.g., blocking addresses, applying enhanced due diligence).
+- **Transparent & Auditable Reports:** On-chain events and data enable protocols, auditors, and regulators to verify compliance measures have been consistently applied.
+- **Reduced Regulatory Risk:** Implementing AML checks demonstrates proactive compliance, improving trust with institutional investors, regulators, and end-users.
 
-### Non-Nix Environment
-Install dependencies:
+## How It Works
 
-- [Node](https://nodejs.org/en/download/)
-- [Typescript](https://www.typescriptlang.org/download)
-- [ts-node](https://www.npmjs.com/package/ts-node)
-- [tcs](https://www.npmjs.com/package/tcs#installation)
-- [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
-- [Foundry](https://getfoundry.sh/)
-- [ethers](https://www.npmjs.com/package/ethers)
+1. **Transaction Task Creation:**  
+   A script (off-chain) simulates or fetches real transaction data, then calls the AVS contract to create a “transaction task.” The task includes details like `txHash`, `from`, `to`, `amountUSD`, and `timestamp`.
 
-### Nix Environment 
-On [Nix](https://nixos.org/) platforms, if you already have the proper Nix configuration, you can build the project’s artifacts inside a `nix develop` shell
-``` sh
-nix develop
-```
-Otherwise, please refer to [installed and configured](./docs/nix-setup-guide.md) section.
+2. **Operator Validation:**  
+   Multiple AVS operators listen for new tasks, retrieve transaction data, and apply AML rules off-chain. Each operator independently decides if the transaction should be flagged.
 
-## Quick start
+3. **On-Chain Responses:**  
+   Operators post their decisions back to the contract. Once a quorum (e.g., 2 out of 3 operators) agrees, the AVS contract finalizes the decision and emits an event, such as `AMLTaskFinalized`. If flagged, the transaction is considered suspicious; if not, it’s recorded as clean.
 
-### Start Anvil Chain
+4. **Results & Integration:**  
+   - **Frontend Dashboard (Optional):** A React-based dashboard visualizes flagged and normal transactions, providing an intuitive interface for compliance officers, regulators, or protocol governance members.
+   - **Protocol Actions:** DeFi protocols can subscribe to AVS events and automatically apply additional compliance steps (e.g., halting suspicious trades, alerting governance, or marking the address for review).
 
-In terminal window #1, execute the following commands:
+## Example Use Cases for DeFi Projects
 
-```sh
+- **Decentralized Exchanges (DEXs):**  
+  Integrate the AVS to monitor large swaps or suspicious trading patterns. Flagged transactions can trigger additional user verification steps or block further trades from blacklisted addresses.
 
-# Install npm packages
-npm install
+- **Lending & Borrowing Protocols:**  
+  If a borrower’s address suddenly executes large, rapid-fire loans and repayments, the protocol can pause that user’s activity until further inspection.
 
-# Start local anvil chain
-npm run start:anvil
-```
+- **Liquidity Pools & AMMs:**  
+  The AVS can detect when unusually large liquidity additions/withdrawals occur from suspicious addresses, helping maintain the integrity of liquidity distribution and prevent potential laundering through pooling strategies.
 
-### Deploy Contracts and Start Operator
+## Deployment and Testing
 
-Open a separate terminal window #2, execute the following commands
+1. **Local Devnet Setup:**  
+   - Run a local `anvil` chain: `npm run start:anvil`.
+   - Deploy EigenLayer core contracts: `npm run deploy:core`.
+   - Deploy the AML AVS contracts: `npm run deploy:aml`.
+   - (Optional) Update ABIs: `npm run extract:abis`.
 
-```sh
-# Setup .env file
-cp .env.example .env
-cp contracts/.env.example contracts/.env
+2. **Operator and Task Generation:**
+   - Start the operator application: `npm run start:operator`.
+   - Create tasks (simulated transactions): Adapt `createNewTasks.ts` to generate AML tasks and run `npm run start:traffic` or a similar command.
 
-# Updates dependencies if necessary and builds the contracts 
-npm run build
+3. **Frontend Integration:**
+   - Connect your React-based UI to listen for `AMLTaskFinalized` events.
+   - Display flagged transactions and other metrics in a dashboard.
 
-# Deploy the EigenLayer contracts
-npm run deploy:core
+## Future Improvements
 
-# Deploy the Hello World AVS contracts
-npm run deploy:hello-world
+- **Advanced AML Rules:** Incorporate more sophisticated rules and external data sources (e.g., chain analysis APIs) to enhance detection accuracy.
+- **Integration with Real Data Feeds:** Fetch live transaction data from real DeFi protocols to continuously monitor for suspicious behavior.
+- **Slashing & Rewards:** Implement staking and slashing logic to penalize operators who misreport and reward honest participants, further strengthening security guarantees.
 
-# (Optional) Update ABIs
-npm run extract:abis
+## Conclusion
 
-# Start the Operator application
-npm run start:operator
-
-```
-
-### Create Hello-World-AVS Tasks
-
-Open a separate terminal window #3, execute the following commands
-
-```sh
-# Start the createNewTasks application 
-npm run start:traffic
-```
-
-### Help and Support
-
-For help and support deploying and modifying this repo for your AVS, please:
-
-1. Open a ticket via the intercom link at [support.eigenlayer.xyz](https://support.eigenlayer.xyz).
-2. Include the necessary troubleshooting information for your environment:
-  * Local anvil testing:
-    * Redeploy your local test using `--revert-strings debug` flag via the following commands and retest: `npm run deploy:core-debug && npm run deploy:hello-world-debug`
-    * Include the full stacktrace from your error as a .txt file attachment.
-    * Create a minimal repo that demonstrates the behavior (fork or otherwise)
-    * Steps require to reproduce issue (compile and cause the error)
-  * Holesky testing:
-    * Ensure contracts are verified on Holesky. Eg `forge verify-contract --chain-id 17000 --num-of-optimizations 200 src/YourContract.sol:YourContract YOUR_CONTRACT_ADDRESS`
-    * Send us your transaction hash where your contract is failing. We will use Tenderly to debug (adjust gas limit) and/or cast to re-run the transaction (eg `cast call --trace "trace_replayTransaction(0xTransactionHash)"`).
-
-
-### Contact Us
-
-If you're planning to build an AVS and would like to speak with a member of the EigenLayer DevRel team to discuss your ideas or architecture, please fill out this form and we'll be in touch shortly: [EigenLayer AVS Intro Call](https://share.hsforms.com/1BksFoaPjSk2l3pQ5J4EVCAein6l)
-
-
-### Disclaimers
-
-- This repo is meant currently intended for _local anvil development testing_. Holesky deployment support will be added shortly.
-- Users who wish to build an AVS for Production purposes will want to migrate from the `ECDSAServiceManagerBase` implementation in `HelloWorldServiceManager.sol` to a BLS style architecture using [RegistryCoordinator](https://github.com/Layr-Labs/eigenlayer-middleware/blob/dev/docs/RegistryCoordinator.md).
-
-# Appendix (Future Capabilities In Progress)
-
-## Adding a New Strategy
-
-## Potential Enhancements to the AVS (for learning purposes)
-
-The architecture can be further enhanced via:
-
-- the nature of the request is more sophisticated than generating a constant string
-- the operators might need to coordinate with each other
-- the type of signature is different based on the constraints of the service
-- the type and amount of security used to secure the AVS
-
-## Rust Operator instructions
-
-### Anvil Deployment
-
-1. Start Anvil Chain
-
-In terminal window #1, execute the following commands:
-```sh
-anvil
-```
-
-2. Deploy Contracts
-
-Open a separate terminal window #2, execute the following commands
-
-```
-make deploy-eigenlayer-contracts
-
-make deploy-helloworld-contracts
-```
-
-3. Start Operator
-
-```sh
-make start-rust-operator
-```
-4. Spam Tasks
-
-```sh
-make spam-rust-tasks
-```
-
-### Testing
-
-1. Start Anvil Chain
-
-In terminal window #1, execute the following commands:
-```sh
-anvil
-```
-
-2. Deploy Contracts
-
-Open a separate terminal window #2, execute the following commands
-
-```
-make deploy-eigenlayer-contracts
-
-make deploy-helloworld-contracts
-```
-
-3. Run this command
-
-```
-cargo test --workspace
-```
+This AML Compliance AVS demonstrates how Actively Validated Services on EigenLayer can empower DeFi protocols with robust, trust-minimized compliance checks. By reusing Ethereum’s security, incorporating multiple operator consensus, and logging all decisions on-chain, DeFi protocols can meet regulatory expectations and foster greater trust among users and regulators, ultimately contributing to a safer, more resilient financial ecosystem.
